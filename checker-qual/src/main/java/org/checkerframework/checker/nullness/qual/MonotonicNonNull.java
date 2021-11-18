@@ -1,10 +1,14 @@
 package org.checkerframework.checker.nullness.qual;
 
+import static javax.annotation.meta.When.NEVER;
+
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import javax.annotation.Nonnull;
+import javax.annotation.meta.TypeQualifierNickname;
 import org.checkerframework.framework.qual.MonotonicQualifier;
 import org.checkerframework.framework.qual.SubtypeOf;
 
@@ -48,4 +52,6 @@ import org.checkerframework.framework.qual.SubtypeOf;
 @Target(ElementType.TYPE_USE)
 @SubtypeOf(Nullable.class)
 @MonotonicQualifier(NonNull.class)
+@TypeQualifierNickname
+@Nonnull(when = NEVER)
 public @interface MonotonicNonNull {}
