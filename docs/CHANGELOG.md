@@ -1,7 +1,116 @@
-Version 3.16.0 (July 9, 2021)
------------------------------
+Version 3.20.0 (December 6, 2021)
+-------------------------------
 
 **User-visible changes:**
+
+The Checker Framework now runs on code that contains switch expressions and
+switch statements that use the new `->` case syntax, but treats them
+conservatively. A future version will improve precision.
+
+**Implementation details:**
+
+The dataflow framework can be run on code that contains switch expressions and
+switch statements that use the new `->` case syntax, but it does not yet
+analyze the cases in a switch expression and it treats `->` as `:`. A future
+version will do so.
+
+Removed methods and classes that have been deprecated for more than one year:
+ * Old way of constructing qualifier hierarchies
+ * `@SuppressWarningsKeys`
+ * `RegularBlock.getContents()`
+ * `TestUtilities.testBooleanProperty()`
+ * `CFAbstractTransfer.getValueWithSameAnnotations()`
+
+**Closed issues:**
+#4911, #4948, #4965.
+
+
+Version 3.19.0 (November 1, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+The Checker Framework runs under JDK 17 -- that is, it runs on a version 17 JVM.
+The Checker Framework also continues to run under JDK 8 and JDK 11.  New
+command-line argument `-ApermitUnsupportedJdkVersion` lets you run the Checker
+Framework on any JDK (version 8 or greater) without a warning about an
+unsupported JDK version.  The Checker Framework does not yet run on code that
+contains switch expressions.
+
+**Implementation details:**
+
+Removed `org.checkerframework.framework.type.VisitorState`
+Removed `AnnotatedTypeFactory#postTypeVarSubstitution`
+
+Deprecated methods in AnnotatedTypeFactory:
+* `getCurrentClassTree`
+* `getCurrentMethodReceiver`
+
+**Closed issues:**
+#4932, #4924, #4908, #3014.
+
+
+Version 3.18.1 (October 4, 2021)
+-------------------------------
+
+**Closed issues:**
+#4902 and #4903.
+
+
+Version 3.18.0 (September 1, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+Java records are type-checked.  Thanks to Neil Brown.
+
+**Closed issues:**
+#4838, #4843, #4852, #4853, #4861, #4876, #4877, #4878, #4878, #4889, #4889.
+
+
+Version 3.17.0 (August 3, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+`-Ainfer` can now infer postcondition annotations that reference formal parameters
+(e.g. `"#1"`, `"#2"`) and the receiver (`"this"`).
+
+**Implementation details:**
+
+Method renamings and signature changes (old methods are removed) in `GenericAnnotatedTypeFactory`:
+* `getPreconditionAnnotation(VariableElement, AnnotatedTypeMirror)` => `getPreconditionAnnotations(String, AnnotatedTypeMirror, AnnotatedTypeMirror)`
+* `getPostconditionAnnotation(VariableElement, AnnotatedTypeMirror, List<AnnotationMirror>)` => `getPostconditionAnnotations(String, AnnotatedTypeMirror, AnnotatedTypeMirror, List<AnnotationMirror>)`
+* `getPreOrPostconditionAnnotation(VariableElement, AnnotatedTypeMirror, Analysis.BeforeOrAfter, List<AnnotationMirror>)` => `getPreOrPostconditionAnnotations(String, AnnotatedTypeMirror, AnnotatedTypeMirror, Analysis.BeforeOrAfter, List<AnnotationMirror>)`
+* `requiresOrEnsuresQualifierAnno(VariableElement, AnnotationMirror, Analysis.BeforeOrAfter)` => `createRequiresOrEnsuresQualifier(String, AnnotationMirror, AnnotatedTypeMirror, Analysis.BeforeOrAfter, List<AnnotationMirror>)`
+
+Method renamings and signature changes (old method is removed) in `WholeProgramInferenceStorage`:
+* `getPreOrPostconditionsForField(Analysis.BeforeOrAfter, ExecutableElement, VariableElement, AnnotatedTypeFactory)` =>  `getPreOrPostconditions(Analysis.BeforeOrAfter, ExecutableElement, String, AnnotatedTypeMirror, AnnotatedTypeFactory)`
+
+Method renamings:
+ * `CFAbstractAnalysis.getFieldValues` => `getFieldInitialValues`
+
+The following methods no longer take a `fieldValues` parameter:
+ * `GenericAnnotatedTypeFactory#createFlowAnalysis`
+ * `CFAnalysis` construtor
+ * `CFAbstractAnalysis#performAnalysis`
+ * `CFAbstractAnalysis` constructors
+
+**Closed issues:**
+#4685, #4689, #4785, #4805, #4806, #4815, #4829, #4849.
+
+
+Version 3.16.0 (July 13, 2021)
+------------------------------
+
+**User-visible changes:**
+
+You can run the Checker Framework on a JDK 16 JVM.  You can pass the `--release
+16` command-line argument to the compiler.  You may need to add additional
+command-line options, such as `--add-opens`; see the Checker Framework manual.
+New syntax, such as records and switch expressions, is not yet supported or
+type-checked; that will be added in a future release.  Thanks to Neil Brown for
+the JDK 16 support.
 
 The Lock Checker supports a new type, `@NewObject`, for the result of a
 constructor invocation.
@@ -32,7 +141,7 @@ Method renamings in `AnnotatedTypes` (the old methods were removed):
  * `expandVarArgsFromTypes` => `expandVarArgsParametersFromTypes`
 
 **Closed issues:**
-
+#3013, #3754, #3791, #3845, #4523, #4767.
 
 Version 3.15.0 (June 18, 2021)
 ----------------------------

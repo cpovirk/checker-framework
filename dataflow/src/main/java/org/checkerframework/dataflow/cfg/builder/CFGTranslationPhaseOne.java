@@ -57,12 +57,7 @@ import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.processing.JavacProcessingEnvironment;
-import com.sun.tools.javac.util.Context;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -281,7 +276,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   /**
    * All return nodes (if any) encountered. Only includes return statements that actually return
-   * something
+   * something.
    */
   private final List<ReturnNode> returnNodes;
 
@@ -441,7 +436,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
     // Add marker to indicate that the next block will be the exit block.
     // Note: if there is a return statement earlier in the method (which is always the case for
     // non-void methods), then this is not strictly necessary. However, it is also not a problem, as
-    // it will just generate a degenerated control graph case that will be removed in a later phase.
+    // it will just generate a degenerate control graph case that will be removed in a later phase.
     nodeList.add(new UnconditionalJump(regularExitLabel));
 
     return new PhaseOneResult(
@@ -473,6 +468,46 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
    * @param tree the newly created Tree
    */
   public void handleArtificialTree(Tree tree) {}
+
+  @Override
+  public Node scan(Tree tree, Void p) {
+    if (tree == null) {
+      return null;
+    }
+    // Must use String comparison to support compiling on JDK 11 and earlier.
+    if (tree.getKind().name().equals("SWITCH_EXPRESSION")) {
+      return visitSwitchExpression17(tree, p);
+    }
+    return super.scan(tree, p);
+
+    // TODO: Do we need to support yield trees and binding patterns to?
+    // Features added between JDK 12 and JDK 17 inclusive.
+    // switch (tree.getKind().name()) {
+    //   case "BINDING_PATTERN":
+    //     return visitBindingPattern17(path.getLeaf(), p);
+    //   case "SWITCH_EXPRESSION":
+    //     return visitSwitchExpression17(tree, p);
+    //   case "YIELD":
+    //     return visitYield17(path.getLeaf(), p);
+    //   default:
+    //     return super.scan(tree, p);
+    // }
+  }
+
+  /**
+   * Visit a SwitchExpressionTree
+   *
+   * @param switchExpressionTree a SwitchExpressionTree, typed as Tree to be backward-compatible
+   * @param p parameter
+   * @return the result of visiting the switch expression tree
+   */
+  public Node visitSwitchExpression17(Tree switchExpressionTree, Void p) {
+    // TODO: Analyze switch expressions properly.
+    return new MarkerNode(
+        switchExpressionTree,
+        "switch expression tree; not analyzed #" + TreeUtils.treeUids.get(switchExpressionTree),
+        env.getTypeUtils());
+  }
 
   /* --------------------------------------------------------- */
   /* Nodes and Labels Management */
@@ -1279,7 +1314,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitAnnotation(AnnotationTree tree, Void p) {
-    throw new Error("AnnotationTree is unexpected in AST to CFG translation");
+    throw new BugInCF("AnnotationTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -1765,7 +1800,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
           targetRHS = unbox(targetLHS);
           value = unbox(value);
         } else {
-          throw new Error("Both argument to logical operation must be numeric or boolean");
+          throw new BugInCF("Both arguments to logical operation must be numeric or boolean");
         }
 
         BinaryTree operTree =
@@ -1793,7 +1828,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
         extendWithNode(assignNode);
         return assignNode;
       default:
-        throw new Error("unexpected compound assignment type");
+        throw new BugInCF("unexpected compound assignment type");
     }
   }
 
@@ -2048,7 +2083,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
           return node;
         }
       default:
-        throw new Error("unexpected binary tree: " + kind);
+        throw new BugInCF("unexpected binary tree: " + kind);
     }
     assert r != null : "unexpected binary tree";
     extendWithNode(r);
@@ -2079,6 +2114,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
     return null;
   }
 
+  // This visits a switch statement, not a switch expression.
   @Override
   public Node visitSwitch(SwitchTree tree, Void p) {
     SwitchBuilder builder = new SwitchBuilder(tree);
@@ -2086,7 +2122,10 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
     return null;
   }
 
-  /** Helper class for handling switch statements. */
+  /**
+   * Helper class for handling switch statements, including all their substatements such as case
+   * labels.
+   */
   private class SwitchBuilder {
     /** The switch tree. */
     private final SwitchTree switchTree;
@@ -2098,10 +2137,12 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
     /**
      * Construct a SwitchBuilder.
      *
-     * @param tree switch tree
+     * @param tree a switch tree
      */
     private SwitchBuilder(SwitchTree tree) {
       this.switchTree = tree;
+      // "+ 1" for the default case.  If the switch has an explicit default case, then
+      // the last element of the array is never used.
       this.caseBodyLabels = new Label[switchTree.getCases().size() + 1];
     }
 
@@ -2149,7 +2190,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
       Integer defaultIndex = null;
       for (int i = 0; i < cases; ++i) {
         CaseTree caseTree = switchTree.getCases().get(i);
-        if (caseTree.getExpression() == null) {
+        if (TreeUtils.caseTreeGetExpressions(caseTree).isEmpty()) {
           defaultIndex = i;
         } else {
           buildCase(caseTree, i);
@@ -2177,17 +2218,24 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
       final Label nextBodyL = caseBodyLabels[index + 1];
       final Label nextCaseL = new Label();
 
-      ExpressionTree exprTree = tree.getExpression();
-      if (exprTree != null) {
+      List<? extends ExpressionTree> exprTrees = TreeUtils.caseTreeGetExpressions(tree);
+      if (!exprTrees.isEmpty()) {
         // non-default cases
-        Node expr = scan(exprTree, null);
-        CaseNode test = new CaseNode(tree, switchExpr, expr, env.getTypeUtils());
+        ArrayList<Node> exprs = new ArrayList<>();
+        for (ExpressionTree exprTree : exprTrees) {
+          exprs.add(scan(exprTree, null));
+        }
+        CaseNode test = new CaseNode(tree, switchExpr, exprs, env.getTypeUtils());
         extendWithNode(test);
         extendWithExtendedNode(new ConditionalJump(thisBodyL, nextCaseL));
       }
       addLabelForNextNode(thisBodyL);
-      for (StatementTree stmt : tree.getStatements()) {
-        scan(stmt, null);
+      if (tree.getStatements() != null) {
+        for (StatementTree stmt : tree.getStatements()) {
+          scan(stmt, null);
+        }
+      } else {
+        scan(TreeUtils.caseTreeGetBody(tree), null);
       }
       extendWithExtendedNode(new UnconditionalJump(nextBodyL));
       addLabelForNextNode(nextCaseL);
@@ -2196,6 +2244,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitCase(CaseTree tree, Void p) {
+    // This assertion assumes that `case` appears only within a switch statement,
     throw new AssertionError("case visitor is implemented in SwitchBuilder");
   }
 
@@ -2305,7 +2354,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitErroneous(ErroneousTree tree, Void p) {
-    throw new Error("ErroneousTree is unexpected in AST to CFG translation");
+    throw new BugInCF("ErroneousTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -2755,7 +2804,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitImport(ImportTree tree, Void p) {
-    throw new Error("ImportTree is unexpected in AST to CFG translation");
+    throw new BugInCF("ImportTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -2821,7 +2870,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
         r = new StringLiteralNode(tree);
         break;
       default:
-        throw new Error("unexpected literal tree");
+        throw new BugInCF("unexpected literal tree");
     }
     assert r != null : "unexpected literal tree";
     extendWithNode(r);
@@ -2830,12 +2879,12 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitMethod(MethodTree tree, Void p) {
-    throw new Error("MethodTree is unexpected in AST to CFG translation");
+    throw new BugInCF("MethodTree is unexpected in AST to CFG translation");
   }
 
   @Override
   public Node visitModifiers(ModifiersTree tree, Void p) {
-    throw new Error("ModifiersTree is unexpected in AST to CFG translation");
+    throw new BugInCF("ModifiersTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -2928,24 +2977,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
     ReturnNode result = null;
     if (ret != null) {
       Node node = scan(ret, p);
-      TreePath enclosingPath =
-          TreePathUtil.pathTillOfKind(
-              getCurrentPath(),
-              new HashSet<>(Arrays.asList(Tree.Kind.METHOD, Tree.Kind.LAMBDA_EXPRESSION)));
-      Tree enclosing = enclosingPath.getLeaf();
-      if (enclosing.getKind() == Tree.Kind.LAMBDA_EXPRESSION) {
-        LambdaExpressionTree lambdaTree = (LambdaExpressionTree) enclosing;
-        Context ctx = ((JavacProcessingEnvironment) env).getContext();
-        Element overriddenElement =
-            com.sun.tools.javac.code.Types.instance(ctx)
-                .findDescriptorSymbol(((Type) trees.getTypeMirror(enclosingPath)).tsym);
-
-        result =
-            new ReturnNode(
-                tree, node, env.getTypeUtils(), lambdaTree, (MethodSymbol) overriddenElement);
-      } else {
-        result = new ReturnNode(tree, node, env.getTypeUtils(), (MethodTree) enclosing);
-      }
+      result = new ReturnNode(tree, node, env.getTypeUtils());
       returnNodes.add(result);
       extendWithNode(result);
     }
@@ -2970,7 +3002,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
         extendWithNode(result);
         return result;
       } else {
-        throw new Error("Unexpected element kind: " + element.getKind());
+        throw new BugInCF("Unexpected element kind: " + element.getKind());
       }
     }
 
@@ -3022,7 +3054,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitCompilationUnit(CompilationUnitTree tree, Void p) {
-    throw new Error("CompilationUnitTree is unexpected in AST to CFG translation");
+    throw new BugInCF("CompilationUnitTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -3315,7 +3347,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitUnionType(UnionTypeTree tree, Void p) {
-    throw new Error("UnionTypeTree is unexpected in AST to CFG translation");
+    throw new BugInCF("UnionTypeTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -3344,7 +3376,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
   @Override
   public Node visitTypeParameter(TypeParameterTree tree, Void p) {
-    throw new Error("TypeParameterTree is unexpected in AST to CFG translation");
+    throw new BugInCF("TypeParameterTree is unexpected in AST to CFG translation");
   }
 
   @Override
@@ -3382,7 +3414,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
               result = new NumericalPlusNode(tree, expr);
               break;
             default:
-              throw new Error("Unexpected kind");
+              throw new BugInCF("Unexpected kind: " + kind);
           }
           extendWithNode(result);
           break;
@@ -3454,7 +3486,7 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
           break;
         }
 
-        throw new Error("Unknown kind (" + kind + ") of unary expression: " + tree);
+        throw new BugInCF("Unknown kind (" + kind + ") of unary expression: " + tree);
     }
 
     return result;
@@ -3517,9 +3549,14 @@ public class CFGTranslationPhaseOne extends TreePathScanner<Node, Void> {
 
     // see JLS 14.4
 
-    boolean isField =
-        getCurrentPath().getParentPath() != null
-            && getCurrentPath().getParentPath().getLeaf().getKind() == Tree.Kind.CLASS;
+    boolean isField = false;
+    if (getCurrentPath().getParentPath() != null) {
+      Tree.Kind kind = TreeUtils.getKindRecordAsClass(getCurrentPath().getParentPath().getLeaf());
+      // CLASS includes records.
+      if (kind == Tree.Kind.CLASS || kind == Tree.Kind.INTERFACE || kind == Tree.Kind.ENUM) {
+        isField = true;
+      }
+    }
     Node node = null;
 
     ClassTree enclosingClass = TreePathUtil.enclosingClass(getCurrentPath());

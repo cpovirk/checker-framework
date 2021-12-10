@@ -14,7 +14,6 @@ import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.ObjectCreationNode;
 import org.checkerframework.dataflow.cfg.node.TernaryExpressionNode;
 import org.checkerframework.dataflow.expression.JavaExpression;
-import org.checkerframework.framework.flow.CFAnalysis;
 import org.checkerframework.framework.flow.CFStore;
 import org.checkerframework.framework.flow.CFValue;
 import org.checkerframework.javacutil.TypesUtils;
@@ -34,7 +33,7 @@ public class ResourceLeakTransfer extends CalledMethodsTransfer {
    * @param analysis the analysis. Its type factory must be a {@link
    *     ResourceLeakAnnotatedTypeFactory}.
    */
-  public ResourceLeakTransfer(final CFAnalysis analysis) {
+  public ResourceLeakTransfer(final ResourceLeakAnalysis analysis) {
     super(analysis);
     this.rlTypeFactory = (ResourceLeakAnnotatedTypeFactory) analysis.getTypeFactory();
   }
