@@ -3,6 +3,17 @@ package org.checkerframework.framework.type;
 // The imports from com.sun are all @jdk.Exported and therefore somewhat safe to use.
 // Try to avoid using non-@jdk.Exported classes.
 
+import static com.google.common.collect.Comparators.emptiesFirst;
+import static com.google.common.collect.Comparators.min;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.MoreCollectors.toOptional;
+import static java.util.Collections.singletonList;
+import static java.util.stream.Stream.concat;
+import static javax.lang.model.type.TypeKind.INTERSECTION;
+import static javax.lang.model.type.TypeKind.TYPEVAR;
+import static org.checkerframework.javacutil.AnnotationUtils.areSameByName;
+
+import com.google.common.collect.ImmutableMap;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
@@ -40,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -47,8 +59,10 @@ import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -5033,6 +5047,48 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
             typeVarToAnnotatedTypeArg, typeVariable.getUpperBound());
     AnnotatedTypeMirror upperBound =
         AnnotatedTypes.annotatedGLB(this, typeVarUpperBound, wildcard.getExtendsBound());
+
+    AtomicReference<AnnotationMirror> seenBottom = new AtomicReference<>();
+    // Collectors.toMap rejects nulls because of JDK-8148463. So we have to wrap in Optional, and
+    // then we might as well use ImmutableMap.
+    ImmutableMap<Parametricity, Optional<AnnotationMirror>> map =
+        concat(
+                unwrapIntersections(typeVarUpperBound).stream(),
+                unwrapIntersections(wildcard.getExtendsBound()).stream())
+            .peek(t -> {
+              t.getAnnotations().stream().filter(a -> areSameByName(qualHierarchy.getBottomAnnotation(a), a)).findAny().ifPresent(seenBottom::set);
+            })
+            .collect(
+                toImmutableMap(
+                    t -> parametricityFrom(t.getUnderlyingType()),
+                    t -> t.getAnnotations().stream().collect(toOptional()),
+                    (a, b) -> min(a, b, optionalAnnotationComparator)));
+    for (AnnotatedTypeMirror t : unwrapIntersections(upperBound)) {
+      //System.err.println("was " + t);
+      t.clearPrimaryAnnotations();
+      if (seenBottom.get() != null) {
+        t.addAnnotation(seenBottom.get());
+        //System.err.println("adding bottom to produce " + t);
+      } else {
+      map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
+        //System.err.println("maybe adding " + map.get(parametricityFrom(t.getUnderlyingType())));
+    }
+    }
+    Optional<AnnotationMirror> upperBoundFromNonTypeVariable = map.get(new Parametricity(null));
+    if (upperBoundFromNonTypeVariable != null && upperBoundFromNonTypeVariable.filter(
+            a -> areSameByName(a, "com.go".toString() + "ogle.jspecify.nullness"
+                + ".NullnessUnspecified"))
+        .isPresent()
+        // TODO This final condition probably does nothing and should be replaced with something better
+        && unwrapIntersections(upperBound).stream().noneMatch(
+        t -> t.getAnnotations().stream().anyMatch(
+            a -> areSameByName(a, "com.go".toString() + "ogle.jspecify.nullness.MinusNull")))) {
+      unwrapIntersections(upperBound).forEach(t -> t.replaceAnnotation(
+          new AnnotationBuilder(processingEnv,
+              "com.go".toString() + "ogle.jspecify.nullness.MinusNull").build()));
+      //System.err.println("set to minus null because that was the best we could do");
+    }
+
     // There is a bug in javac such that the upper bound of the captured type variable is not the
     // greatest lower bound. So the captureTypeVar.getUnderlyingType().getUpperBound() may not
     // be the same type as upperbound.getUnderlyingType().  See
@@ -5040,12 +5096,26 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     // framework/tests/all-systems/Issue4890.java and framework/tests/all-systems/Issue4877.java.
     capturedTypeVar.setUpperBound(upperBound);
 
-    // typeVariable's lower bound is a NullType, so there's nothing to substitute.
-    AnnotatedTypeMirror lowerBound =
-        AnnotatedTypes.leastUpperBound(
-            this, typeVariable.getLowerBound(), wildcard.getSuperBound());
-    capturedTypeVar.setLowerBound(lowerBound);
+    // JLS 5.1.10 suggests that we should always be able to use the wildcard's bound directly. The
+    // CF comment said "there's nothing to *substitute*," but CF still went to some effort to call
+    // leastUpperBound. As usual, we want to avoid calling leastUpperBound because of our unusual
+    // rules for type variables. Fortunately, it seems that we can just... not call it, instead
+    // passing the wildcard's bound directly.
+    capturedTypeVar.setLowerBound(wildcard.getSuperBound());
 
+    // cpovirk: It might make sense to remove this section. However, it doesn't seem to make much
+    // difference at the moment. Now, removing the section does allow us to issue a couple warnings
+    // in NotNullMarkedUseOfWildcardAsTypeArgument that we don't currently. But:
+    //
+    // - We don't care very much about warnings (in contrast to errors).
+    //
+    // - The warning would probably exist already if not for the hackiness above. That's not to say
+    // that we couldn't still choose to try to issue it. But it suggests that such a change wouldn't
+    // necessarily be making things fundamentally more correct. It may instead be piling hacks upon
+    // hacks.
+    //
+    // Anyway, here's what the original CF comment says:
+    //
     // Add as a primary annotation any qualifiers that are the same on the upper and lower bound.
     AnnotationMirrorSet p =
         new AnnotationMirrorSet(capturedTypeVar.getUpperBound().getAnnotations());
@@ -5053,6 +5123,45 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     capturedTypeVar.replaceAnnotations(p);
 
     capturedTypeVarSubstitutor.substitute(capturedTypeVar, capturedTypeVarToAnnotatedTypeVar);
+  }
+
+  /**
+   * Orders annotations higher in the hierarchy as "greater" and a lack of annotations as "less"
+   * than all annotations.
+   */
+  private final Comparator<Optional<AnnotationMirror>> optionalAnnotationComparator = emptiesFirst((a, b) -> areSameByName(a, b) ? 0 : areSameByName(qualHierarchy.greatestLowerBound(a, b), a) ? -1 : 1);
+
+  private static List<AnnotatedTypeMirror> unwrapIntersections(AnnotatedTypeMirror t) {
+    return t.getKind() == INTERSECTION ? ((AnnotatedIntersectionType) t).getBounds() : singletonList(t);
+  }
+
+  Parametricity parametricityFrom(TypeMirror t) {
+      return t.getKind() == TYPEVAR ? new Parametricity((TypeVariable) t) : new Parametricity(null);
+    }
+
+  private final class Parametricity {
+    private final TypeVariable typeVariable;
+
+    Parametricity(TypeVariable typeVariable) {
+      this.typeVariable = typeVariable;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof Parametricity) {
+        Parametricity other = (Parametricity) obj;
+        if (typeVariable == null || other.typeVariable == null) {
+          return typeVariable == other.typeVariable;
+        }
+        return types.isSameType(typeVariable, other.typeVariable);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return 1; // Don't trust hashCode, just as we don't trust equals (preferring isSameType).
+    }
   }
 
   /**
