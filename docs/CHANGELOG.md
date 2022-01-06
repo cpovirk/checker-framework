@@ -1,3 +1,33 @@
+Version 3.?.? (?, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+The Checker Framework Gradle Plugin now works incrementally:  if you change just
+one source file, then Gradle will recompile just that file rather than all
+files.
+
+**Implementation details:**
+
+**Closed issues:**
+
+
+Version 3.21.0 (December 17, 2021)
+-------------------------------
+
+**User-visible changes:**
+
+The Checker Framework now more precisely computes the type of a switch expression.
+
+**Implementation details:**
+
+The dataflow framework now analyzes switch expressions and switch statements
+that use the new `->` case syntax. To do so, a new node, SwitchExpressionNode,
+was added.
+
+**Closed issues:**
+#2373, #4934, #4977, #4979, #4987.
+
 Version 3.20.0 (December 6, 2021)
 -------------------------------
 
