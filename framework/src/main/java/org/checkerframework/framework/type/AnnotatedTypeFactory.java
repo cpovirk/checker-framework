@@ -5096,11 +5096,15 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     // framework/tests/all-systems/Issue4890.java and framework/tests/all-systems/Issue4877.java.
     capturedTypeVar.setUpperBound(upperBound);
 
-    // JLS 5.1.10 suggests that we should always be able to use the wildcard's bound directly. The
-    // CF comment said "there's nothing to *substitute*," but CF still went to some effort to call
-    // leastUpperBound. As usual, we want to avoid calling leastUpperBound because of our unusual
-    // rules for type variables. Fortunately, it seems that we can just... not call it, instead
-    // passing the wildcard's bound directly.
+    // JLS 5.1.10 suggests that we should always be able to use the wildcard's bound directly.
+    // However, CF allows for specifying lower bounds for type parameters, so it needs to call
+    // leastUpperBound on the wildcard and type parameter bounds. (The CF comment says "there's
+    // nothing to *substitute*" (for the null bound, which can't contain type-variable usages), but
+    // it still needs to respect any annotations on that null bound.)
+    //
+    // As usual, we want to avoid calling leastUpperBound because of our unusual rules for type
+    // variables. Fortunately, it seems that we can just... not call it, instead passing the
+    // wildcard's bound directly.
     capturedTypeVar.setLowerBound(wildcard.getSuperBound());
 
     // cpovirk: It might make sense to remove this section. However, it doesn't seem to make much
