@@ -304,7 +304,7 @@ class SupertypeFinder {
        * becomes necessary when we merge the upstream implementation of capture conversion. The need
        * for this logic will be demonstrated by the forthcoming implementWithNullableTypeArgument
        * JSpecify sample input.
-       * 
+       *
        * Digression that I will eventually tie back to the main point: I had some trouble
        * reproducing the failure in that test until I changed my custom test runner (one that
        * predates the jspecifySamplesTest runner described at

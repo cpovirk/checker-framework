@@ -26,7 +26,9 @@ public class Default implements Comparable<Default> {
     if (!(location instanceof TypeUseLocation)
         && !(location instanceof AdditionalTypeUseLocation)) {
       throw new IllegalArgumentException(
-          "location argument " + location + " has unrecognized class "
+          "location argument "
+              + location
+              + " has unrecognized class "
               + location.getDeclaringClass().getName());
     }
     this.anno = anno;

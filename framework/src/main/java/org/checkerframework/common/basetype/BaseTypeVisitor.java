@@ -2026,10 +2026,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
 
     if (ret != null) {
       commonAssignmentCheck(
-          ret,
-          node.getExpression(),
-          "return",
-          extraArgForReturnTypeError(node.getExpression()));
+          ret, node.getExpression(), "return", extraArgForReturnTypeError(node.getExpression()));
     }
     return super.visitReturn(node, p);
   }
@@ -3905,8 +3902,7 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
         boolean success;
         if (isMethodReference) {
           success =
-              atypeFactory.getTypeHierarchy()
-                  .isSubtype(capturedParam, overriderParams.get(i));
+              atypeFactory.getTypeHierarchy().isSubtype(capturedParam, overriderParams.get(i));
           if (!success) {
             // TODO(cpovirk): Should we do this in the non-isMethodReference case, too?
             success = testTypevarContainment(overriddenParams.get(i), overriderParams.get(i));

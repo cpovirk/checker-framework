@@ -1016,8 +1016,7 @@ public class QualifierDefaults {
       private AnnotatedTypeMirror typeArgTiedToDeclaration = null;
 
       @Override
-      public Void visitExecutable(
-          AnnotatedExecutableType type, AnnotationMirror annotationMirror) {
+      public Void visitExecutable(AnnotatedExecutableType type, AnnotationMirror annotationMirror) {
         // Inlined from supermethod except for constructorReturnType logic.
         boolean isConstructor =
             type.getUnderlyingType().getReturnType().getKind() == TypeKind.VOID
@@ -1039,8 +1038,7 @@ public class QualifierDefaults {
       }
 
       @Override
-      public Void visitDeclared(
-          AnnotatedDeclaredType type, AnnotationMirror annotationMirror) {
+      public Void visitDeclared(AnnotatedDeclaredType type, AnnotationMirror annotationMirror) {
         // Inlined from supermethod except for constructorReturnTypeArg logic.
 
         // Only declared types with type arguments might be recursive,
