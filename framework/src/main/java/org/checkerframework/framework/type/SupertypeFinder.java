@@ -298,6 +298,49 @@ class SupertypeFinder {
           }
         }
       }
+
+      /*
+       * cpovirk: The following logic is likely not necessary at the time I'm adding it. However, it
+       * becomes necessary when we merge the upstream implementation of capture conversion. The need
+       * for this logic will be demonstrated by the forthcoming implementWithNullableTypeArgument
+       * JSpecify sample input.
+       * 
+       * Digression that I will eventually tie back to the main point: I had some trouble
+       * reproducing the failure in that test until I changed my custom test runner (one that
+       * predates the jspecifySamplesTest runner described at
+       * https://github.com/jspecify/nullness-checker-for-checker-framework#usage) to always sort
+       * the filenames it passed to the compiler.
+       *
+       * From that and other investigation, I came to conclude that the problem is the difference
+       * between supertypesFromTree (which works) and supertypesFromElement (which does not, at
+       * least not after the implementation of capture conversion).
+       *
+       * Specifically, the post-capture-conversion implementation of supertypesFromElement doesn't
+       * populate annotations on type-variable bounds. I assume that this is fine if you're using
+       * the correct, upstream model for type variables. However, for our weird model, it causes
+       * problems: Our nullness-subtyping checks traverse those upper bounds, so we need them to be
+       * correct.
+       *
+       * Fortunately, it's not hard to look up the upper bounds from the type parameter declaration.
+       * That fixes the problem.
+       *
+       * Once I'd gotten that far, I looked back through the history of this file, and sure enough,
+       * the commit that implemented capture conversion (8475fd7ef0c21c6ace0a0c37e99a828b2a3e83b5)
+       * removed some code that looks to be doing something similar :)
+       */
+      for (AnnotatedDeclaredType supertype : supertypes) {
+        for (AnnotatedTypeMirror arg : supertype.getTypeArguments()) {
+          if (arg.getKind() == TypeKind.TYPEVAR) {
+            AnnotatedTypeMirror plainUseOfTypeVar =
+                atypeFactory
+                    .getAnnotatedType(((AnnotatedTypeVariable) arg).getUnderlyingType().asElement())
+                    .asUse();
+            ((AnnotatedTypeVariable) arg)
+                .setUpperBound(((AnnotatedTypeVariable) plainUseOfTypeVar).getUpperBound());
+          }
+        }
+      }
+
       ElementAnnotationApplier.annotateSupers(supertypes, typeElement);
 
       if (type.isUnderlyingTypeRaw()) {
