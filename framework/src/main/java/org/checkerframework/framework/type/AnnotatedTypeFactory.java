@@ -5079,6 +5079,9 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
       }
     }
     Optional<AnnotationMirror> upperBoundFromNonTypeVariable = map.get(new Parametricity(null));
+    // Below, we avoid using the full string "com.google" because it would be shaded/relocated.
+    // We want to refer to com.google.jspecify.nullness, the package present at runtime.
+    // TODO(cpovirk): Avoid this by improving our build's rewriting rules?
     if (upperBoundFromNonTypeVariable != null
         && upperBoundFromNonTypeVariable
             .filter(
