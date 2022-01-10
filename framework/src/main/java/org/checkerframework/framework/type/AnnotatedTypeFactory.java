@@ -5055,38 +5055,57 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
         concat(
                 unwrapIntersections(typeVarUpperBound).stream(),
                 unwrapIntersections(wildcard.getExtendsBound()).stream())
-            .peek(t -> {
-              t.getAnnotations().stream().filter(a -> areSameByName(qualHierarchy.getBottomAnnotation(a), a)).findAny().ifPresent(seenBottom::set);
-            })
+            .peek(
+                t -> {
+                  t.getAnnotations().stream()
+                      .filter(a -> areSameByName(qualHierarchy.getBottomAnnotation(a), a))
+                      .findAny()
+                      .ifPresent(seenBottom::set);
+                })
             .collect(
                 toImmutableMap(
                     t -> parametricityFrom(t.getUnderlyingType()),
                     t -> t.getAnnotations().stream().collect(toOptional()),
                     (a, b) -> min(a, b, optionalAnnotationComparator)));
     for (AnnotatedTypeMirror t : unwrapIntersections(upperBound)) {
-      //System.err.println("was " + t);
+      // System.err.println("was " + t);
       t.clearPrimaryAnnotations();
       if (seenBottom.get() != null) {
         t.addAnnotation(seenBottom.get());
-        //System.err.println("adding bottom to produce " + t);
+        // System.err.println("adding bottom to produce " + t);
       } else {
-      map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
-        //System.err.println("maybe adding " + map.get(parametricityFrom(t.getUnderlyingType())));
-    }
+        map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
+        // System.err.println("maybe adding " + map.get(parametricityFrom(t.getUnderlyingType())));
+      }
     }
     Optional<AnnotationMirror> upperBoundFromNonTypeVariable = map.get(new Parametricity(null));
-    if (upperBoundFromNonTypeVariable != null && upperBoundFromNonTypeVariable.filter(
-            a -> areSameByName(a, "com.go".toString() + "ogle.jspecify.nullness"
-                + ".NullnessUnspecified"))
-        .isPresent()
-        // TODO This final condition probably does nothing and should be replaced with something better
-        && unwrapIntersections(upperBound).stream().noneMatch(
-        t -> t.getAnnotations().stream().anyMatch(
-            a -> areSameByName(a, "com.go".toString() + "ogle.jspecify.nullness.MinusNull")))) {
-      unwrapIntersections(upperBound).forEach(t -> t.replaceAnnotation(
-          new AnnotationBuilder(processingEnv,
-              "com.go".toString() + "ogle.jspecify.nullness.MinusNull").build()));
-      //System.err.println("set to minus null because that was the best we could do");
+    if (upperBoundFromNonTypeVariable != null
+        && upperBoundFromNonTypeVariable
+            .filter(
+                a ->
+                    areSameByName(
+                        a, "com.go".toString() + "ogle.jspecify.nullness" + ".NullnessUnspecified"))
+            .isPresent()
+        // TODO This final condition probably does nothing and should be replaced with something
+        // better
+        && unwrapIntersections(upperBound).stream()
+            .noneMatch(
+                t ->
+                    t.getAnnotations().stream()
+                        .anyMatch(
+                            a ->
+                                areSameByName(
+                                    a,
+                                    "com.go".toString() + "ogle.jspecify.nullness.MinusNull")))) {
+      unwrapIntersections(upperBound)
+          .forEach(
+              t ->
+                  t.replaceAnnotation(
+                      new AnnotationBuilder(
+                              processingEnv,
+                              "com.go".toString() + "ogle.jspecify.nullness.MinusNull")
+                          .build()));
+      // System.err.println("set to minus null because that was the best we could do");
     }
 
     // There is a bug in javac such that the upper bound of the captured type variable is not the
@@ -5133,15 +5152,22 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
    * Orders annotations higher in the hierarchy as "greater" and a lack of annotations as "less"
    * than all annotations.
    */
-  private final Comparator<Optional<AnnotationMirror>> optionalAnnotationComparator = emptiesFirst((a, b) -> areSameByName(a, b) ? 0 : areSameByName(qualHierarchy.greatestLowerBound(a, b), a) ? -1 : 1);
+  private final Comparator<Optional<AnnotationMirror>> optionalAnnotationComparator =
+      emptiesFirst(
+          (a, b) ->
+              areSameByName(a, b)
+                  ? 0
+                  : areSameByName(qualHierarchy.greatestLowerBound(a, b), a) ? -1 : 1);
 
   private static List<AnnotatedTypeMirror> unwrapIntersections(AnnotatedTypeMirror t) {
-    return t.getKind() == INTERSECTION ? ((AnnotatedIntersectionType) t).getBounds() : singletonList(t);
+    return t.getKind() == INTERSECTION
+        ? ((AnnotatedIntersectionType) t).getBounds()
+        : singletonList(t);
   }
 
   Parametricity parametricityFrom(TypeMirror t) {
-      return t.getKind() == TYPEVAR ? new Parametricity((TypeVariable) t) : new Parametricity(null);
-    }
+    return t.getKind() == TYPEVAR ? new Parametricity((TypeVariable) t) : new Parametricity(null);
+  }
 
   private final class Parametricity {
     private final TypeVariable typeVariable;
