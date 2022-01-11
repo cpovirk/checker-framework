@@ -5056,7 +5056,6 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
         typeVarSubstitutor.substitute(typeVarToAnnotatedTypeArg, typeVariable.getUpperBound());
     AnnotationMirror[] top = new AnnotationMirror[1];
     AnnotationMirror[] bottom = new AnnotationMirror[1];
-    boolean[] seenBottom = new boolean[1];
     // Collectors.toMap rejects nulls because of JDK-8148463. So we have to wrap in Optional, and
     // then we might as well use ImmutableMap.
     ImmutableMap<Parametricity, Optional<AnnotationMirror>> map =
@@ -5069,7 +5068,6 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
                   if (a != null) {
                     top[0] = qualHierarchy.getTopAnnotation(a);
                     bottom[0] = qualHierarchy.getBottomAnnotation(a);
-                    seenBottom[0] |= areSameByName(a, bottom[0]);
                   }
                   // System.err.println("noticing " + t + " with " + t.getAnnotations());
                 })
@@ -5078,17 +5076,7 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
                     t -> parametricityFrom(t.getUnderlyingType()),
                     t -> t.getAnnotations().stream().collect(toOptional()),
                     (a, b) -> min(a, b, optionalAnnotationComparator)));
-    for (AnnotatedTypeMirror t : unwrapIntersections(upperBound)) {
-      // System.err.println("was " + t);
-      t.clearPrimaryAnnotations();
-      if (seenBottom[0]) {
-        t.addAnnotation(bottom[0]);
-        // System.err.println("adding bottom to produce " + t);
-      } else {
-        map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
-        // System.err.println("maybe adding " + map.get(parametricityFrom(t.getUnderlyingType())));
-      }
-    }
+
     Optional<AnnotationMirror> upperBoundFromNonTypeVariable = map.get(new Parametricity(null));
     // Below, we avoid using the full string "com.google" because it would be shaded/relocated.
     // We want to refer to com.google.jspecify.nullness, the package present at runtime.
@@ -5097,6 +5085,13 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
         && upperBoundFromNonTypeVariable.filter(a -> !areSameByName(a, top[0])).isPresent()) {
       unwrapIntersections(upperBound).forEach(t -> t.replaceAnnotation(bottom[0]));
       // System.err.println("set to minus null because that was the best we could do");
+    } else {
+      for (AnnotatedTypeMirror t : unwrapIntersections(upperBound)) {
+        // System.err.println("was " + t);
+        t.clearPrimaryAnnotations();
+        map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
+        // System.err.println("maybe adding " + map.get(parametricityFrom(t.getUnderlyingType())));
+      }
     }
 
     // There is a bug in javac such that the upper bound of the captured type variable is not the
