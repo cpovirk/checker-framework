@@ -1798,7 +1798,6 @@ public abstract class GenericAnnotatedTypeFactory<
         log(
             "%s GATF.addComputedTypeAnnotations#8(%s, %s), as=%s%n",
             thisClass, treeString, type, as);
-        System.err.println("just touched tree " + ((Object) tree).toString());
       }
     }
     log(
@@ -1868,7 +1867,6 @@ public abstract class GenericAnnotatedTypeFactory<
   protected void applyInferredAnnotations(AnnotatedTypeMirror type, Value as) {
     DefaultInferredTypesApplier applier =
         new DefaultInferredTypesApplier(getQualifierHierarchy(), this);
-    new Exception("applying " + as + " to " + type).printStackTrace();
     applier.applyInferredType(type, as.getAnnotations(), as.getUnderlyingType());
   }
 
