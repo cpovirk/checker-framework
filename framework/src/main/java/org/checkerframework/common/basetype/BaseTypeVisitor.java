@@ -2022,6 +2022,10 @@ public class BaseTypeVisitor<Factory extends GenericAnnotatedTypeFactory<?, ?, ?
       if (valid) {
         ret = atypeFactory.getMethodReturnType(enclosingMethod, node);
       }
+    } else {
+      AnnotatedExecutableType result =
+          atypeFactory.getFunctionTypeFromTree((LambdaExpressionTree) enclosing);
+      ret = result.getReturnType();
     }
 
     if (ret != null) {
