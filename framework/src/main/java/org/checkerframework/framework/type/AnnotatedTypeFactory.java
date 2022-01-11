@@ -62,7 +62,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.StringJoiner;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -5095,20 +5094,8 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     // We want to refer to com.google.jspecify.nullness, the package present at runtime.
     // TODO(cpovirk): Avoid this by improving our build's rewriting rules?
     if (upperBoundFromNonTypeVariable != null
-        && upperBoundFromNonTypeVariable
-            .filter(
-                a ->
-                    areSameByName(
-                        a, "com.go".toString() + "ogle.jspecify.nullness" + ".NullnessUnspecified"))
-            .isPresent()) {
-      unwrapIntersections(upperBound)
-          .forEach(
-              t ->
-                  t.replaceAnnotation(
-                      new AnnotationBuilder(
-                              processingEnv,
-                              "com.go".toString() + "ogle.jspecify.nullness.MinusNull")
-                          .build()));
+        && upperBoundFromNonTypeVariable.filter(a -> !areSameByName(a, top[0])).isPresent()) {
+      unwrapIntersections(upperBound).forEach(t -> t.replaceAnnotation(bottom[0]));
       // System.err.println("set to minus null because that was the best we could do");
     }
 
