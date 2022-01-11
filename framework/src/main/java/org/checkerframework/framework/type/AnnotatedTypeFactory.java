@@ -5048,15 +5048,23 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     AnnotatedTypeMirror upperBound =
         AnnotatedTypes.annotatedGLB(this, typeVarUpperBound, wildcard.getExtendsBound());
 
+    // `substituteWithoutCopyingTypeArguments` avoids calling our `substituteTypeVariable`
+    // implementation, but we appear to need to call it in order to see the right bound for the type
+    // variable. So we call plain `substitute` and use the result of that in our own code. (We
+    // continue to let the rest of the code use the result of
+    // `substituteWithoutCopyingTypeArguments`, as before.)
+    AnnotatedTypeMirror hackTypeVarUpperBound =
+        typeVarSubstitutor.substitute(typeVarToAnnotatedTypeArg, typeVariable.getUpperBound());
     AtomicReference<AnnotationMirror> seenBottom = new AtomicReference<>();
     // Collectors.toMap rejects nulls because of JDK-8148463. So we have to wrap in Optional, and
     // then we might as well use ImmutableMap.
     ImmutableMap<Parametricity, Optional<AnnotationMirror>> map =
         concat(
-                unwrapIntersections(typeVarUpperBound).stream(),
+                unwrapIntersections(hackTypeVarUpperBound).stream(),
                 unwrapIntersections(wildcard.getExtendsBound()).stream())
             .peek(
                 t -> {
+                  // System.err.println("noticing " + t + " with " + t.getAnnotations());
                   t.getAnnotations().stream()
                       .filter(a -> areSameByName(qualHierarchy.getBottomAnnotation(a), a))
                       .findAny()
