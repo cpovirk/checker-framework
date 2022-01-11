@@ -5096,18 +5096,7 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
                 a ->
                     areSameByName(
                         a, "com.go".toString() + "ogle.jspecify.nullness" + ".NullnessUnspecified"))
-            .isPresent()
-        // TODO This final condition probably does nothing and should be replaced with something
-        // better
-        && unwrapIntersections(upperBound).stream()
-            .noneMatch(
-                t ->
-                    t.getAnnotations().stream()
-                        .anyMatch(
-                            a ->
-                                areSameByName(
-                                    a,
-                                    "com.go".toString() + "ogle.jspecify.nullness.MinusNull")))) {
+            .isPresent()) {
       unwrapIntersections(upperBound)
           .forEach(
               t ->
