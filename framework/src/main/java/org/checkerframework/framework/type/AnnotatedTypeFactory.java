@@ -5055,7 +5055,9 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     // `substituteWithoutCopyingTypeArguments`, as before.)
     AnnotatedTypeMirror hackTypeVarUpperBound =
         typeVarSubstitutor.substitute(typeVarToAnnotatedTypeArg, typeVariable.getUpperBound());
-    AtomicReference<AnnotationMirror> seenBottom = new AtomicReference<>();
+    AnnotationMirror[] top = new AnnotationMirror[1];
+    AnnotationMirror[] bottom = new AnnotationMirror[1];
+    boolean[] seenBottom = new boolean[1];
     // Collectors.toMap rejects nulls because of JDK-8148463. So we have to wrap in Optional, and
     // then we might as well use ImmutableMap.
     ImmutableMap<Parametricity, Optional<AnnotationMirror>> map =
@@ -5064,11 +5066,13 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
                 unwrapIntersections(wildcard.getExtendsBound()).stream())
             .peek(
                 t -> {
+                  AnnotationMirror a = t.getAnnotation();
+                  if (a != null) {
+                    top[0] = qualHierarchy.getTopAnnotation(a);
+                    bottom[0] = qualHierarchy.getBottomAnnotation(a);
+                    seenBottom[0] |= areSameByName(a, bottom[0]);
+                  }
                   // System.err.println("noticing " + t + " with " + t.getAnnotations());
-                  t.getAnnotations().stream()
-                      .filter(a -> areSameByName(qualHierarchy.getBottomAnnotation(a), a))
-                      .findAny()
-                      .ifPresent(seenBottom::set);
                 })
             .collect(
                 toImmutableMap(
@@ -5078,8 +5082,8 @@ public class AnnotatedTypeFactory implements AnnotationProvider {
     for (AnnotatedTypeMirror t : unwrapIntersections(upperBound)) {
       // System.err.println("was " + t);
       t.clearPrimaryAnnotations();
-      if (seenBottom.get() != null) {
-        t.addAnnotation(seenBottom.get());
+      if (seenBottom[0]) {
+        t.addAnnotation(bottom[0]);
         // System.err.println("adding bottom to produce " + t);
       } else {
         map.get(parametricityFrom(t.getUnderlyingType())).ifPresent(t::addAnnotation);
