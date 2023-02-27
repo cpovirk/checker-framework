@@ -40,6 +40,8 @@ import org.checkerframework.javacutil.TreeUtils;
 import org.checkerframework.javacutil.TypesUtils;
 import org.plumelib.util.CollectionsPlume;
 
+import static org.checkerframework.javacutil.TreeUtils.Select;
+
 /**
  * The TreeBuilder permits the creation of new AST Trees using the non-public Java compiler API
  * TreeMaker.
@@ -118,8 +120,7 @@ public class TreeBuilder {
             com.sun.tools.javac.util.List.nil(),
             methodClass);
 
-    JCTree.JCFieldAccess iteratorAccess =
-        (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) iterableExpr, iteratorMethod);
+    JCTree.JCFieldAccess iteratorAccess = Select(maker, iterableExpr, iteratorMethod);
     iteratorAccess.setType(updatedMethodType);
 
     return iteratorAccess;
@@ -148,8 +149,7 @@ public class TreeBuilder {
 
     assert hasNextMethod != null : "no hasNext method declared for expression type";
 
-    JCTree.JCFieldAccess hasNextAccess =
-        (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) iteratorExpr, hasNextMethod);
+    JCTree.JCFieldAccess hasNextAccess = Select(maker, iteratorExpr, hasNextMethod);
     hasNextAccess.setType(hasNextMethod.asType());
 
     return hasNextAccess;
@@ -198,8 +198,7 @@ public class TreeBuilder {
             com.sun.tools.javac.util.List.nil(),
             methodClass);
 
-    JCTree.JCFieldAccess nextAccess =
-        (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) iteratorExpr, nextMethod);
+    JCTree.JCFieldAccess nextAccess = Select(maker, iteratorExpr, nextMethod);
     nextAccess.setType(updatedMethodType);
 
     return nextAccess;
@@ -213,7 +212,7 @@ public class TreeBuilder {
    */
   public MemberSelectTree buildArrayLengthAccess(ExpressionTree expression) {
 
-    return (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) expression, symtab.lengthVar);
+    return Select(maker, expression, symtab.lengthVar);
   }
 
   /**
@@ -388,8 +387,7 @@ public class TreeBuilder {
 
     Type.MethodType methodType = (Type.MethodType) valueOfMethod.asType();
 
-    JCTree.JCFieldAccess valueOfAccess =
-        (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) expr, valueOfMethod);
+    JCTree.JCFieldAccess valueOfAccess = Select(maker, expr, valueOfMethod);
     valueOfAccess.setType(methodType);
 
     return valueOfAccess;
@@ -447,8 +445,7 @@ public class TreeBuilder {
 
     Type.MethodType methodType = (Type.MethodType) primValueMethod.asType();
 
-    JCTree.JCFieldAccess primValueAccess =
-        (JCTree.JCFieldAccess) maker.Select((JCTree.JCExpression) expr, primValueMethod);
+    JCTree.JCFieldAccess primValueAccess = Select(maker, expr, primValueMethod);
     primValueAccess.setType(methodType);
 
     return primValueAccess;

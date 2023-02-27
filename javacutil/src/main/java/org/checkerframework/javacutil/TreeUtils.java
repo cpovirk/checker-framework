@@ -43,6 +43,7 @@ import com.sun.tools.javac.tree.JCTree.JCAnnotation;
 import com.sun.tools.javac.tree.JCTree.JCBinary;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
+import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCLambda;
 import com.sun.tools.javac.tree.JCTree.JCLambda.ParameterKind;
 import com.sun.tools.javac.tree.JCTree.JCLiteral;
@@ -130,6 +131,8 @@ public final class TreeUtils {
   private static @MonotonicNonNull Method switchExpressionGetCases = null;
   /** The {@code YieldTree.getValue()} method. Null on JDK 11 and lower. */
   private static @MonotonicNonNull Method yieldGetValue = null;
+  /** The {@code TreeMaker.Select(JCExpression, Symbol)} method. Return type changes for JDK21+. */
+  private static final Method treeMakerSelect;
 
   /** Tree kinds that represent a binary comparison. */
   private static final Set<Tree.Kind> BINARY_COMPARISON_TREE_KINDS =
@@ -174,6 +177,11 @@ public final class TreeUtils {
       } catch (ClassNotFoundException | NoSuchMethodException e) {
         throw new BugInCF("JDK 12+ reflection problem", e);
       }
+    }
+    try {
+      treeMakerSelect = TreeMaker.class.getMethod("Select", JCExpression.class, Symbol.class);
+    } catch (NoSuchMethodException e) {
+      throw new BugInCF("TreeMaker.Select reflection problem", e);
     }
   }
 
@@ -2262,6 +2270,25 @@ public final class TreeUtils {
           "TreeUtils.switchExpressionTreeGetCases: reflection failed for tree: %s",
           switchExpressionTree, e);
     }
+  }
+
+  /** Returns the result of {@code treeMaker.Select(base, sym)}. */
+  public static JCFieldAccess Select(TreeMaker treeMaker, Tree base, Symbol sym) {
+    try {
+      return (JCFieldAccess) treeMakerSelect.invoke(treeMaker, base, sym);
+    } catch (InvocationTargetException | IllegalAccessException e) {
+      throw new BugInCF("TreeUtils.Select: reflection failed for tree: %s", base, e);
+    }
+  }
+
+  /** Returns the result of {@code treeMaker.Select(base, name)}. */
+  public static JCFieldAccess Select(
+      TreeMaker treeMaker, JCExpression base, com.sun.tools.javac.util.Name name) {
+    /*
+     * There's no need for reflection here. The only reason we even declare this method is so that
+     * callers don't have to remember which overload we provide a wrapper around.
+     */
+    return treeMaker.Select(base, name);
   }
 
   /**

@@ -53,6 +53,8 @@ import org.checkerframework.javacutil.AnnotationUtils;
 import org.checkerframework.javacutil.BugInCF;
 import org.checkerframework.javacutil.TreeUtils;
 
+import static org.checkerframework.javacutil.TreeUtils.Select;
+
 /**
  * Default implementation of {@link ReflectionResolver}. It resolves calls to:
  *
@@ -379,7 +381,7 @@ public class DefaultReflectionResolver implements ReflectionResolver {
           debugReflection("Resolved non-public method: " + symbol.owner + "." + symbol);
         }
 
-        JCExpression method = make.Select(receiver, symbol);
+        JCExpression method = Select(make, receiver, symbol);
         args = getCorrectedArgs(symbol, args);
         // Build method invocation tree depending on the number of
         // parameters

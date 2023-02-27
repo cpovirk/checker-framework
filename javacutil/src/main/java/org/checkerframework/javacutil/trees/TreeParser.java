@@ -12,6 +12,8 @@ import java.util.StringTokenizer;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.javacutil.Pair;
 
+import static org.checkerframework.javacutil.TreeUtils.Select;
+
 /**
  * A utility class for parsing Java expression snippets, and converting them to proper Javac AST
  * nodes.
@@ -116,7 +118,7 @@ public class TreeParser {
       token = delim;
       if (".".equals(delim)) {
         token = nextToken(tokenizer);
-        tree = maker.Select(tree, names.fromString(token));
+        tree = Select(maker, tree, names.fromString(token));
       } else if ("(".equals(delim)) {
         token = nextToken(tokenizer);
         ListBuffer<JCExpression> args = new ListBuffer<>();
